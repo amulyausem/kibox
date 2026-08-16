@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "Kibox",
+    "slug": "kibox-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/brand/kibox-logo.png",
+    "scheme": "kibox",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Kibox uses the camera to scan barcodes and photograph groceries.",
+        "NSMicrophoneUsageDescription": "Microphone access is unused; required only if the camera requests it."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#f7f8f9",
+        "foregroundImage": "./assets/brand/kibox-logo.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["CAMERA", "android.permission.CAMERA"]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/brand/kibox-logo.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Kibox uses the camera to scan barcodes and photograph groceries."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#5B8A81"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/brand/kibox-logo.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#f7f8f9"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

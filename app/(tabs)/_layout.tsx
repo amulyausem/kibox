@@ -36,7 +36,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="restock"
         options={{
-          title: 'Restock',
+          title: 'List',
           tabBarIcon: ({ color, size }) => <ClipboardList size={size - 2} color={color} />,
         }}
       />

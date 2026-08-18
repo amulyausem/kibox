@@ -31,6 +31,8 @@ export interface CandidateItem {
   confidence: number;
   source: Item['source'];
   barcode?: string;
+  detail?: string;
+  lastPriceCents?: number;
 }
 
 export interface IngestionSource {

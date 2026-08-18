@@ -5,10 +5,12 @@ import Animated from 'react-native-reanimated';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { PressScale } from '@/components/PressScale';
 import { ExpiryPill } from '@/components/ExpiryPill';
-import { getExpiryStatus, expiryLabel } from '@/domain/expiry';
+import { getExpiryStatus, expiryLabel, useThisFirst } from '@/domain/expiry';
+import { formatCents, wasteCentsInMonth } from '@/domain/money';
 import { runningLowRules } from '@/domain/restock';
 import { listEntering, listLayout } from '@/lib/animations';
 import { qtyLabel } from '@/lib/format';
+import { openRestock } from '@/lib/openRestock';
 import { useAppStore } from '@/lib/store';
 import { fonts, radii, useTheme } from '@/lib/theme';
 
@@ -18,13 +20,16 @@ export default function AlertsScreen() {
   const rules = useAppStore((s) => s.rules);
   const settings = useAppStore((s) => s.settings);
   const markUsed = useAppStore((s) => s.markUsed);
-  const removeItem = useAppStore((s) => s.removeItem);
-  const updateItem = useAppStore((s) => s.updateItem);
+  const tossItem = useAppStore((s) => s.tossItem);
+  const addToShopping = useAppStore((s) => s.addToShopping);
+  const waste = useAppStore((s) => s.waste);
   const now = new Date();
   const confirmed = items.filter((item) => item.status === 'confirmed');
   const expired = confirmed.filter((item) => getExpiryStatus(item, now, settings) === 'expired');
   const soon = confirmed.filter((item) => getExpiryStatus(item, now, settings) === 'expiring_soon');
   const low = runningLowRules(confirmed, rules, now);
+  const first = useThisFirst(confirmed, now, settings, 3);
+  const wasteCents = wasteCentsInMonth(waste, now);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg0 }} edges={['top']}>
@@ -36,25 +41,51 @@ export default function AlertsScreen() {
           title="Today"
           subtitle={`${expired.length + soon.length + low.length} things to glance at`}
         />
+        {wasteCents > 0 ? (
+          <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: t.muted, marginBottom: 14 }}>
+            Tossed {formatCents(wasteCents)} this month — from receipt prices when we had them.
+          </Text>
+        ) : null}
+
+        <Section title="Eat these first" empty="Nothing urgent.">
+          {first.map((item, i) => (
+            <AlertCard
+              key={`first-${item.id}`}
+              index={i}
+              title={item.name}
+              meta={`${qtyLabel(item.quantity, item.unit)} · ${item.location}${item.openedAt ? ' · opened' : ''}`}
+              pill={
+                <ExpiryPill
+                  status={getExpiryStatus(item, now, settings)}
+                  label={expiryLabel(item, now, settings)}
+                />
+              }
+              actions={[
+                { label: 'Used it', onPress: () => markUsed(item.id) },
+                { label: 'Toss', onPress: () => tossItem(item.id) },
+              ]}
+            />
+          ))}
+        </Section>
 
         <Section title="Expired" empty="Nothing expired.">
-          {expired.map((item, i) => (
+          {expired.filter((item) => !first.some((row) => row.id === item.id)).map((item, i) => (
             <AlertCard
               key={item.id}
               index={i}
               title={item.name}
               meta={`${qtyLabel(item.quantity, item.unit)} · probably used`}
-              pill={<ExpiryPill status="expired" label={expiryLabel(item, now, settings.shelfLifeDays)} />}
+              pill={<ExpiryPill status="expired" label={expiryLabel(item, now, settings)} />}
               actions={[
                 { label: 'Used it', onPress: () => markUsed(item.id) },
-                { label: 'Toss', onPress: () => removeItem(item.id) },
+                { label: 'Toss', onPress: () => tossItem(item.id) },
               ]}
             />
           ))}
         </Section>
 
         <Section title="Expiring soon" empty="Nothing due soon.">
-          {soon.map((item, i) => (
+          {soon.filter((item) => !first.some((row) => row.id === item.id)).map((item, i) => (
             <AlertCard
               key={item.id}
               index={i}
@@ -63,12 +94,12 @@ export default function AlertsScreen() {
               pill={
                 <ExpiryPill
                   status="expiring_soon"
-                  label={expiryLabel(item, now, settings.shelfLifeDays)}
+                  label={expiryLabel(item, now, settings)}
                 />
               }
               actions={[
                 { label: 'Used it', onPress: () => markUsed(item.id) },
-                { label: 'Toss', onPress: () => removeItem(item.id) },
+                { label: 'Toss', onPress: () => tossItem(item.id) },
               ]}
             />
           ))}
@@ -84,13 +115,12 @@ export default function AlertsScreen() {
               pill={<ExpiryPill status="fresh" label="Low" />}
               actions={[
                 {
-                  label: 'Restock',
-                  onPress: () => {
-                    const match = confirmed.find(
-                      (item) => item.name.toLowerCase() === rule.itemName.toLowerCase(),
-                    );
-                    if (match) void updateItem(match.id, { flaggedForRestock: true });
-                  },
+                  label: 'Add to list',
+                  onPress: () => addToShopping(rule.itemName),
+                },
+                {
+                  label: 'Store',
+                  onPress: () => openRestock(rule.itemName),
                 },
               ]}
             />

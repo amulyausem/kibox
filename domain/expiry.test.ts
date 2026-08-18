@@ -57,20 +57,30 @@ describe('getExpiryStatus', () => {
     assert.equal(inferred.startsWith('2026-08-17'), true);
     assert.equal(getExpiryStatus(milk, now, settings), 'expiring_soon');
   });
+
+  it('shortens the clock after opening', () => {
+    const milk = item({
+      expiresAt: '2026-08-26T12:00:00.000Z',
+      openedAt: '2026-08-14T12:00:00.000Z',
+    });
+    const inferred = inferExpiresAt(milk, settings.shelfLifeDays, settings.openedShelfLifeDays);
+    assert.equal(inferred.startsWith('2026-08-19'), true);
+    assert.equal(getExpiryStatus(milk, now, settings), 'expiring_soon');
+  });
 });
 
 describe('expiryLabel', () => {
   it('formats remaining days compactly', () => {
     assert.equal(
-      expiryLabel(item({ expiresAt: '2026-08-16T12:00:00.000Z' }), now, settings.shelfLifeDays),
+      expiryLabel(item({ expiresAt: '2026-08-16T12:00:00.000Z' }), now, settings),
       'Expires today',
     );
     assert.equal(
-      expiryLabel(item({ expiresAt: '2026-08-17T12:00:00.000Z' }), now, settings.shelfLifeDays),
+      expiryLabel(item({ expiresAt: '2026-08-17T12:00:00.000Z' }), now, settings),
       'Tomorrow',
     );
     assert.equal(
-      expiryLabel(item({ expiresAt: '2026-08-14T12:00:00.000Z' }), now, settings.shelfLifeDays),
+      expiryLabel(item({ expiresAt: '2026-08-14T12:00:00.000Z' }), now, settings),
       'Expired 2d',
     );
   });

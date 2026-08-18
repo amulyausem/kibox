@@ -12,8 +12,8 @@ export class LocalSettingsRepository implements SettingsRepository {
       'SELECT json FROM settings WHERE id = ?',
       SETTINGS_ID,
     );
-    if (!row) return defaultSettings();
-    return { ...defaultSettings(), ...parseSettings(row.json) };
+    if (!row) return { ...defaultSettings(), onboardingDone: false };
+    return { ...defaultSettings(), onboardingDone: true, ...parseSettings(row.json) };
   }
 
   async save(settings: HouseholdSettings): Promise<void> {

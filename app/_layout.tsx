@@ -13,6 +13,8 @@ import { Newsreader_600SemiBold, Newsreader_700Bold } from '@expo-google-fonts/n
 import { useColorScheme } from '@/components/useColorScheme';
 import { configureAndroidChannel } from '@/lib/notifications';
 import { useAppStore } from '@/lib/store';
+import { OnboardingScreen } from '@/components/OnboardingScreen';
+import { AppEffects } from '@/components/AppEffects';
 import { useTheme } from '@/lib/theme';
 
 export { ErrorBoundary } from 'expo-router';
@@ -53,10 +55,24 @@ export default function RootLayout() {
 function RootNav() {
   const scheme = useColorScheme();
   const t = useTheme();
+  const loaded = useAppStore((s) => s.loaded);
+  const onboardingDone = useAppStore((s) => s.settings.onboardingDone);
+
+  if (!loaded) return null;
+
+  if (!onboardingDone) {
+    return (
+      <View style={{ flex: 1, backgroundColor: t.bg0 }}>
+        <AppEffects />
+        <OnboardingScreen />
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg0 }}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+      <AppEffects />
       <Stack
         screenOptions={{
           headerShadowVisible: false,
@@ -78,6 +94,14 @@ function RootNav() {
         <Stack.Screen
           name="add-photo"
           options={{ presentation: 'fullScreenModal', title: 'Photo add' }}
+        />
+        <Stack.Screen
+          name="add-receipt"
+          options={{ presentation: 'fullScreenModal', title: 'Scan receipt' }}
+        />
+        <Stack.Screen
+          name="add-loyalty"
+          options={{ presentation: 'modal', title: 'Paste receipt' }}
         />
         <Stack.Screen name="item/[id]" options={{ title: 'Item' }} />
       </Stack>

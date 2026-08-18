@@ -45,9 +45,7 @@ export default function InventoryScreen() {
       return [
         {
           key: 'Soonest',
-          items: [...confirmed].sort((a, b) =>
-            compareByExpiry(a, b, now, settings.shelfLifeDays),
-          ),
+          items: [...confirmed].sort((a, b) => compareByExpiry(a, b, now, settings)),
         },
       ];
     }
@@ -59,9 +57,9 @@ export default function InventoryScreen() {
     }
     return [...buckets.entries()].map(([key, rows]) => ({
       key,
-      items: rows.sort((a, b) => compareByExpiry(a, b, now, settings.shelfLifeDays)),
+      items: rows.sort((a, b) => compareByExpiry(a, b, now, settings)),
     }));
-  }, [confirmed, settings.shelfLifeDays, sort]);
+  }, [confirmed, settings, sort]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg0 }} edges={['top']}>

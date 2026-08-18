@@ -148,7 +148,7 @@ export default function ItemDetailScreen() {
           style={{ marginTop: 10 }}
         >
           <Text style={{ fontFamily: fonts.sansMd, color: t.mint, fontSize: 13 }}>
-            {item.openedAt ? 'Opened' : 'Mark opened'}
+            {item.openedAt ? 'Opened — shorter clock' : 'Mark opened'}
           </Text>
         </PressScale>
       </View>
@@ -162,7 +162,7 @@ export default function ItemDetailScreen() {
           alignItems: 'center',
         }}
       >
-        <Text style={{ fontFamily: fonts.sansMd, color: t.ink }}>Flag for restock</Text>
+        <Text style={{ fontFamily: fonts.sansMd, color: t.ink }}>On shopping list</Text>
         <Text style={{ fontFamily: fonts.sans, color: item.flaggedForRestock ? t.mint : t.muted }}>
           {item.flaggedForRestock ? 'On list' : 'Off'}
         </Text>

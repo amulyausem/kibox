@@ -9,9 +9,14 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.kiboxofficial.app",
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.kiboxofficial.app"]
+      },
       "infoPlist": {
         "NSCameraUsageDescription": "Kibox uses the camera to scan barcodes and photograph groceries.",
-        "NSMicrophoneUsageDescription": "Microphone access is unused; required only if the camera requests it."
+        "NSMicrophoneUsageDescription": "Microphone access is unused; required only if the camera requests it.",
+        "NSUserActivityTypes": ["com.kiboxofficial.app.used"]
       }
     },
     "android": {
@@ -28,12 +33,26 @@
       "favicon": "./assets/brand/kibox-logo.png"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "headers": {
+            "Cross-Origin-Embedder-Policy": "credentialless",
+            "Cross-Origin-Opener-Policy": "same-origin"
+          }
+        }
+      ],
       "expo-sqlite",
       [
         "expo-camera",
         {
           "cameraPermission": "Kibox uses the camera to scan barcodes and photograph groceries."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Kibox uses your photos to read a grocery or receipt picture."
         }
       ],
       [
@@ -48,6 +67,21 @@
           "image": "./assets/brand/kibox-logo.png",
           "resizeMode": "contain",
           "backgroundColor": "#f7f8f9"
+        }
+      ],
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "com.kiboxofficial.app.widgets",
+          "groupIdentifier": "group.com.kiboxofficial.app",
+          "widgets": [
+            {
+              "name": "KiboxToday",
+              "displayName": "Kibox",
+              "description": "What to use first, and how many items are on the list.",
+              "supportedFamilies": ["systemSmall", "systemMedium", "accessoryRectangular"]
+            }
+          ]
         }
       ]
     ],

@@ -5,11 +5,13 @@
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/newsreader": "^0.4.1",
+    "@expo/ui": "~57.0.11",
     "expo": "~57.0.13",
     "expo-camera": "~57.0.3",
     "expo-constants": "~57.0.11",
     "expo-font": "~57.0.1",
     "expo-haptics": "~57.0.1",
+    "expo-image-picker": "~57.0.11",
     "expo-linking": "~57.0.6",
     "expo-notifications": "~57.0.11",
     "expo-router": "~57.0.13",
@@ -18,6 +20,7 @@
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.2",
     "expo-web-browser": "~57.0.2",
+    "expo-widgets": "~57.0.10",
     "lucide-react-native": "^1.31.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -40,8 +43,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "tsx --test domain/expiry.test.ts domain/restock.test.ts domain/confidence.test.ts",
-    "typecheck": "tsc --noEmit"
+    "test": "tsx --test domain/expiry.test.ts domain/restock.test.ts domain/confidence.test.ts domain/receiptExtract.test.ts domain/money.test.ts domain/household.test.ts",
+    "typecheck": "tsc --noEmit",
+    "proxy": "node server/vision-proxy.mjs"
   },
   "private": true
 }

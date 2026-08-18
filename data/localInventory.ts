@@ -38,13 +38,14 @@ export class LocalInventoryRepository implements InventoryRepository {
       photoUri: input.photoUri,
       barcode: input.barcode,
       flaggedForRestock: input.flaggedForRestock ?? false,
+      lastPriceCents: input.lastPriceCents,
     };
     const db = await getDb();
     await db.runAsync(
       `INSERT INTO items (
         id, name, category, quantity, unit, location, addedAt, expiresAt, openedAt,
-        source, status, confidence, photoUri, barcode, flaggedForRestock
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        source, status, confidence, photoUri, barcode, flaggedForRestock, lastPriceCents
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       item.id,
       item.name,
       item.category,
@@ -60,6 +61,7 @@ export class LocalInventoryRepository implements InventoryRepository {
       item.photoUri ?? null,
       item.barcode ?? null,
       item.flaggedForRestock ? 1 : 0,
+      item.lastPriceCents ?? null,
     );
     return item;
   }
@@ -73,7 +75,7 @@ export class LocalInventoryRepository implements InventoryRepository {
       `UPDATE items SET
         name = ?, category = ?, quantity = ?, unit = ?, location = ?, addedAt = ?,
         expiresAt = ?, openedAt = ?, source = ?, status = ?, confidence = ?,
-        photoUri = ?, barcode = ?, flaggedForRestock = ?
+        photoUri = ?, barcode = ?, flaggedForRestock = ?, lastPriceCents = ?
       WHERE id = ?`,
       next.name,
       next.category,
@@ -89,6 +91,7 @@ export class LocalInventoryRepository implements InventoryRepository {
       next.photoUri ?? null,
       next.barcode ?? null,
       next.flaggedForRestock ? 1 : 0,
+      next.lastPriceCents ?? null,
       id,
     );
     return next;

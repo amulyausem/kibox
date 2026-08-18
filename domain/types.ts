@@ -43,6 +43,7 @@ export interface Item {
   photoUri?: string;
   barcode?: string;
   flaggedForRestock: boolean;
+  lastPriceCents?: number;
 }
 
 export interface StapleRule {
@@ -62,6 +63,13 @@ export interface HouseholdSettings {
   seedDataEnabled: boolean;
   soonWindowsDays: Record<Category, number>;
   shelfLifeDays: Record<Category, number>;
+  openedShelfLifeDays: Record<Category, number>;
+  onboardingDone: boolean;
+  visionConsent: boolean;
+  deviceId: string;
+  householdCode?: string;
+  lastPushedAt?: string;
+  lastPulledAt?: string;
 }
 
 export interface NewItemInput {
@@ -79,8 +87,33 @@ export interface NewItemInput {
   barcode?: string;
   flaggedForRestock?: boolean;
   addedAt?: string;
+  lastPriceCents?: number;
 }
 
-export type ItemPatch = Partial<
-  Omit<Item, 'id'>
->;
+export type ItemPatch = Partial<Omit<Item, 'id'>>;
+
+export interface ShoppingListItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  checked: boolean;
+  pantryItemId?: string;
+  addedAt: string;
+}
+
+export interface WasteEvent {
+  id: string;
+  name: string;
+  category: Category;
+  quantity: number;
+  unit: string;
+  priceCents?: number;
+  tossedAt: string;
+}
+
+export interface UsageEvent {
+  id: string;
+  itemName: string;
+  usedAt: string;
+}

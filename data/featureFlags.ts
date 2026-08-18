@@ -1,13 +1,9 @@
-/**
- * Feature flags make stubbed integrations obvious.
- * Flip a flag only after a real implementation exists behind the same interface.
- */
 export const FEATURES = {
-  realProductLookup: false,
-  realVisionRecognition: false,
-  realReceiptParsing: false,
+  realProductLookup: true,
+  realVisionRecognition: true,
+  realReceiptParsing: true,
   realLoyaltySync: false,
-  realReorderHandoff: false,
+  realReorderHandoff: true,
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURES;

@@ -26,7 +26,7 @@ export function ItemRow({ item, index }: Props) {
   const suggested = item.status === 'suggested';
   const now = new Date();
   const status = getExpiryStatus(item, now, settings);
-  const label = expiryLabel(item, now, settings.shelfLifeDays);
+  const label = expiryLabel(item, now, settings);
 
   return (
     <Animated.View

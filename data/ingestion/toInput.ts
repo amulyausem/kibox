@@ -19,5 +19,6 @@ export function candidateToInput(
     status,
     confidence: status === 'suggested' ? candidate.confidence : undefined,
     barcode: candidate.barcode,
+    lastPriceCents: candidate.lastPriceCents,
   };
 }

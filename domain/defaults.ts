@@ -30,6 +30,16 @@ export const DEFAULT_SOON_WINDOWS_DAYS: Record<Category, number> = {
   other: 5,
 };
 
+export const DEFAULT_OPENED_SHELF_LIFE_DAYS: Record<Category, number> = {
+  produce: 3,
+  dairy: 5,
+  meat: 2,
+  pantry: 14,
+  frozen: 21,
+  household: 365,
+  other: 5,
+};
+
 export const DEFAULT_UNITS: Record<Category, string> = {
   produce: 'pcs',
   dairy: 'ea',
@@ -47,8 +57,12 @@ export function defaultSettings(): HouseholdSettings {
     notificationMinute: 0,
     digestEnabled: true,
     units: 'imperial',
-    seedDataEnabled: true,
+    seedDataEnabled: false,
     soonWindowsDays: { ...DEFAULT_SOON_WINDOWS_DAYS },
     shelfLifeDays: { ...DEFAULT_SHELF_LIFE_DAYS },
+    openedShelfLifeDays: { ...DEFAULT_OPENED_SHELF_LIFE_DAYS },
+    onboardingDone: false,
+    visionConsent: false,
+    deviceId: '',
   };
 }

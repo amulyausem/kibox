@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { Alert, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, Clipboard, ScrollView, Share, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PressScale } from '@/components/PressScale';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { FEATURES } from '@/data/featureFlags';
+import { syncBaseUrl } from '@/data/householdSync';
+import { householdInviteMessage } from '@/domain/household';
 import { createId } from '@/domain/ids';
+import { formatCents, wasteCentsInMonth } from '@/domain/money';
 import { CATEGORIES, LOCATIONS } from '@/domain/types';
 import { hourLabel } from '@/lib/format';
 import { useAppStore } from '@/lib/store';
@@ -17,9 +19,18 @@ export default function SettingsScreen() {
   const rules = useAppStore((s) => s.rules);
   const saveSettings = useAppStore((s) => s.saveSettings);
   const resetSeed = useAppStore((s) => s.resetSeed);
+  const exportBackup = useAppStore((s) => s.exportBackup);
+  const importBackup = useAppStore((s) => s.importBackup);
+  const createHousehold = useAppStore((s) => s.createHousehold);
+  const joinHousehold = useAppStore((s) => s.joinHousehold);
+  const leaveHousehold = useAppStore((s) => s.leaveHousehold);
+  const pullHouseholdNow = useAppStore((s) => s.pullHouseholdNow);
+  const waste = useAppStore((s) => s.waste);
+  const [stapleName, setStapleName] = useState('');
+  const [backupDraft, setBackupDraft] = useState('');
+  const [joinDraft, setJoinDraft] = useState('');
   const upsertRule = useAppStore((s) => s.upsertRule);
   const removeRule = useAppStore((s) => s.removeRule);
-  const [stapleName, setStapleName] = useState('');
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg0 }} edges={['top']}>
@@ -254,18 +265,221 @@ export default function SettingsScreen() {
           </View>
         </Card>
 
-        <Card title="Integrations (stubbed)">
-          {Object.entries(FEATURES).map(([key, on]) => (
-            <Row
-              key={key}
-              label={key.replace(/([A-Z])/g, ' $1').replace(/^real /, 'real ')}
-              right={
-                <Text style={{ fontFamily: fonts.sansMd, fontSize: 12, color: on ? t.mint : t.muted }}>
-                  {on ? 'on' : 'stub'}
-                </Text>
-              }
-            />
-          ))}
+        <Card title="Privacy">
+          <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: t.muted, lineHeight: 18, marginBottom: 8 }}>
+            Receipt and grocery photos are sent to Google Gemini to extract items. Kibox has no account and no
+            cloud of your pantry. Toggle off to block new photo reads.
+          </Text>
+          <Row
+            label="Allow photo reading"
+            right={
+              <Switch
+                value={settings.visionConsent}
+                onValueChange={(visionConsent) => saveSettings({ visionConsent })}
+                trackColor={{ true: t.mint, false: t.line }}
+              />
+            }
+          />
+        </Card>
+
+        <Card title="Household">
+          <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: t.muted, lineHeight: 18, marginBottom: 8 }}>
+            Live pantry + list between phones on the same companion server
+            {syncBaseUrl() ? ` (${syncBaseUrl()})` : '. Set EXPO_PUBLIC_SYNC_URL, then restart Expo.'}
+          </Text>
+          {settings.householdCode ? (
+            <>
+              <Row
+                label="Code"
+                right={
+                  <Text style={{ fontFamily: fonts.sansMd, fontSize: 14, color: t.ink, letterSpacing: 1 }}>
+                    {settings.householdCode}
+                  </Text>
+                }
+              />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 8 }}>
+                <PressScale
+                  onPress={() =>
+                    void Share.share({
+                      title: 'Kibox household',
+                      message: householdInviteMessage(settings.householdCode ?? ''),
+                    })
+                  }
+                >
+                  <Text style={{ fontFamily: fonts.sansMd, fontSize: 13, color: t.mint }}>Share invite</Text>
+                </PressScale>
+                <PressScale onPress={() => void pullHouseholdNow().then(() => Alert.alert('Synced', 'Pulled the latest household snapshot.'))}>
+                  <Text style={{ fontFamily: fonts.sansMd, fontSize: 13, color: t.mint }}>Pull now</Text>
+                </PressScale>
+                <PressScale
+                  onPress={() =>
+                    Alert.alert('Leave household?', 'This phone keeps its pantry. It stops syncing.', [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Leave', style: 'destructive', onPress: () => void leaveHousehold() },
+                    ])
+                  }
+                >
+                  <Text style={{ fontFamily: fonts.sansMd, fontSize: 13, color: t.mint }}>Leave</Text>
+                </PressScale>
+              </View>
+            </>
+          ) : (
+            <>
+              <PressScale
+                onPress={() => {
+                  if (!syncBaseUrl()) {
+                    Alert.alert(
+                      'Companion required',
+                      'Run `npm run proxy` on a computer both phones can reach, then set EXPO_PUBLIC_SYNC_URL in .env and restart Expo.',
+                    );
+                    return;
+                  }
+                  void createHousehold().catch((err: unknown) =>
+                    Alert.alert('Could not create', err instanceof Error ? err.message : 'Try again'),
+                  );
+                }}
+                style={{ alignSelf: 'flex-start', marginBottom: 10 }}
+              >
+                <Text style={{ fontFamily: fonts.sansMd, fontSize: 13, color: t.mint }}>Create household</Text>
+              </PressScale>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TextInput
+                  value={joinDraft}
+                  onChangeText={setJoinDraft}
+                  placeholder="Join code"
+                  placeholderTextColor={t.muted}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  style={{
+                    flex: 1,
+                    fontFamily: fonts.sans,
+                    fontSize: 14,
+                    color: t.ink,
+                    backgroundColor: t.bg0,
+                    borderRadius: 10,
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    borderWidth: 1,
+                    borderColor: t.line,
+                  }}
+                />
+                <PressScale
+                  onPress={() => {
+                    if (!syncBaseUrl()) {
+                      Alert.alert(
+                        'Companion required',
+                        'Both phones need EXPO_PUBLIC_SYNC_URL pointing at the same proxy.',
+                      );
+                      return;
+                    }
+                    void joinHousehold(joinDraft)
+                      .then(() => setJoinDraft(''))
+                      .catch((err: unknown) =>
+                        Alert.alert('Could not join', err instanceof Error ? err.message : 'Check the code'),
+                      );
+                  }}
+                  style={{
+                    backgroundColor: t.ink,
+                    borderRadius: 10,
+                    paddingHorizontal: 12,
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ fontFamily: fonts.sansMd, color: '#fff', fontSize: 13 }}>Join</Text>
+                </PressScale>
+              </View>
+            </>
+          )}
+        </Card>
+
+        <Card title="Siri & widget">
+          <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: t.muted, lineHeight: 18, marginBottom: 8 }}>
+            In Shortcuts, add Open URL. Say “Used milk” to hit kibox://used?name=Milk — that marks it used, or adds it to
+            the list. Home Screen widget needs a development or TestFlight build, not Expo Go.
+          </Text>
+          <PressScale
+            onPress={() => {
+              Clipboard.setString('kibox://used?name=Milk');
+              Alert.alert('Copied', 'Paste into Shortcuts → Open URL. Change Milk to any item name.');
+            }}
+            style={{ alignSelf: 'flex-start' }}
+          >
+            <Text style={{ fontFamily: fonts.sansMd, fontSize: 13, color: t.mint }}>Copy Used shortcut</Text>
+          </PressScale>
+        </Card>
+
+        <Card title="Backup">
+          <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: t.muted, lineHeight: 18, marginBottom: 8 }}>
+            This month tossed {formatCents(wasteCentsInMonth(waste, new Date()))}. Export is a JSON file you can
+            share or paste back in.
+          </Text>
+          <PressScale
+            onPress={() => {
+              const payload = JSON.stringify(exportBackup(), null, 2);
+              void Share.share({ title: 'Kibox backup', message: payload });
+            }}
+            style={{
+              alignSelf: 'flex-start',
+              backgroundColor: t.ink,
+              borderRadius: 10,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              marginBottom: 10,
+            }}
+          >
+            <Text style={{ fontFamily: fonts.sansMd, fontSize: 13, color: '#fff' }}>Export backup</Text>
+          </PressScale>
+          <TextInput
+            value={backupDraft}
+            onChangeText={setBackupDraft}
+            placeholder="Paste a backup JSON to restore"
+            placeholderTextColor={t.muted}
+            multiline
+            style={{
+              minHeight: 72,
+              fontFamily: fonts.sans,
+              fontSize: 12,
+              color: t.ink,
+              backgroundColor: t.bg0,
+              borderRadius: 10,
+              paddingHorizontal: 10,
+              paddingVertical: 8,
+              borderWidth: 1,
+              borderColor: t.line,
+              marginBottom: 8,
+            }}
+          />
+          <PressScale
+            onPress={() => {
+              if (!backupDraft.trim()) return;
+              Alert.alert('Restore backup?', 'Replaces pantry, list, and settings on this phone.', [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Restore',
+                  style: 'destructive',
+                  onPress: () => {
+                    void importBackup(backupDraft.trim())
+                      .then(() => setBackupDraft(''))
+                      .catch((err: unknown) =>
+                        Alert.alert('Could not restore', err instanceof Error ? err.message : 'Invalid file'),
+                      );
+                  },
+                },
+              ]);
+            }}
+            style={{ alignSelf: 'flex-start' }}
+          >
+            <Text style={{ fontFamily: fonts.sansMd, fontSize: 13, color: t.mint }}>Restore from paste</Text>
+          </PressScale>
+        </Card>
+
+        <Card title="Add-ins">
+          <Row label="Barcode lookup" right={<Text style={{ fontFamily: fonts.sansMd, fontSize: 12, color: t.mint }}>Open Food Facts + local</Text>} />
+          <Row label="Receipt / photo" right={<Text style={{ fontFamily: fonts.sansMd, fontSize: 12, color: t.mint }}>Gemini vision</Text>} />
+          <Row label="Pasted receipt" right={<Text style={{ fontFamily: fonts.sansMd, fontSize: 12, color: t.mint }}>Text extract</Text>} />
+          <Row label="List + stores" right={<Text style={{ fontFamily: fonts.sansMd, fontSize: 12, color: t.mint }}>Share · Instacart cart · Amazon · Walmart</Text>} />
+          <Row label="Household" right={<Text style={{ fontFamily: fonts.sansMd, fontSize: 12, color: t.mint }}>Companion sync</Text>} />
+          <Row label="Widget / Siri" right={<Text style={{ fontFamily: fonts.sansMd, fontSize: 12, color: t.mint }}>Dev build + Shortcuts</Text>} />
         </Card>
       </ScrollView>
     </SafeAreaView>

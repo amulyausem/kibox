@@ -7,7 +7,6 @@ import { Camera, ScanBarcode, Store, Receipt } from 'lucide-react-native';
 import { PressScale } from '@/components/PressScale';
 import { QuantityStepper } from '@/components/QuantityStepper';
 import { ManualIngestionSource } from '@/data/ingestion/manual';
-import { LoyaltyIngestionSource, ReceiptIngestionSource } from '@/data/ingestion/sources';
 import { candidateToInput } from '@/data/ingestion/toInput';
 import { GROCERY_CATALOG, searchCatalog } from '@/domain/groceryCatalog';
 import { categoryLabel, locationLabel } from '@/lib/format';
@@ -18,7 +17,6 @@ export default function QuickAddScreen() {
   const t = useTheme();
   const router = useRouter();
   const addItem = useAppStore((s) => s.addItem);
-  const addCandidatesAsSuggested = useAppStore((s) => s.addCandidatesAsSuggested);
   const toast = useAppStore((s) => s.toast);
   const [query, setQuery] = useState('');
   const [qty, setQty] = useState(1);
@@ -32,14 +30,6 @@ export default function QuickAddScreen() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setQuery('');
     setQty(1);
-  };
-
-  const ingestStub = async (kind: 'receipt' | 'loyalty') => {
-    const source = kind === 'receipt' ? new ReceiptIngestionSource() : new LoyaltyIngestionSource();
-    const candidates = await source.ingest();
-    await addCandidatesAsSuggested((now) =>
-      candidates.map((c) => candidateToInput(c, now, 'suggested')),
-    );
   };
 
   return (
@@ -176,13 +166,13 @@ export default function QuickAddScreen() {
           />
           <Way
             icon={<Receipt size={16} color={t.ink} />}
-            label="Receipt · stub"
-            onPress={() => ingestStub('receipt')}
+            label="Receipt"
+            onPress={() => router.push('/add-receipt')}
           />
           <Way
             icon={<Store size={16} color={t.ink} />}
-            label="Loyalty · stub"
-            onPress={() => ingestStub('loyalty')}
+            label="Paste text"
+            onPress={() => router.push('/add-loyalty')}
           />
         </View>
       </ScrollView>

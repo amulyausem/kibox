@@ -4,9 +4,10 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { PressScale } from '@/components/PressScale';
-import { productLookup } from '@/data/lookup/productLookup';
-import { addDaysIso } from '@/domain/dates';
-import { guessFromName } from '@/domain/groceryCatalog';
+import { BarcodeIngestionSource } from '@/data/ingestion/barcode';
+import { ManualIngestionSource } from '@/data/ingestion/manual';
+import { candidateToInput } from '@/data/ingestion/toInput';
+import { LOCAL_BARCODES, productLookup } from '@/data/lookup/productLookup';
 import { useAppStore } from '@/lib/store';
 import { fonts, radii, useTheme } from '@/lib/theme';
 
@@ -14,56 +15,51 @@ export default function BarcodeScreen() {
   const t = useTheme();
   const router = useRouter();
   const addItem = useAppStore((s) => s.addItem);
-  const settings = useAppStore((s) => s.settings);
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [manual, setManual] = useState('');
-  const [status, setStatus] = useState('Point at a barcode');
+  const [status, setStatus] = useState('Point at a barcode, or tap a sample code');
+
+  const addFromBarcode = async (barcode: string) => {
+    const source = new BarcodeIngestionSource(barcode, productLookup);
+    const [candidate] = await source.ingest();
+    if (candidate) {
+      await addItem(candidateToInput(candidate, new Date(), 'confirmed'));
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setStatus(`Added ${candidate.name}. Scan another.`);
+      setManual('');
+      setScanned(false);
+      return true;
+    }
+    return false;
+  };
 
   const handleCode = async (barcode: string) => {
-    if (!barcode) return;
+    if (!barcode || scanned) return;
     setScanned(true);
-    const product = await productLookup.lookup(barcode);
-    if (product) {
-      await addItem({
-        name: product.name,
-        category: product.category,
-        quantity: 1,
-        unit: product.unit,
-        location: product.location,
-        expiresAt: addDaysIso(new Date(), product.shelfLifeDays),
-        source: 'barcode',
-        status: 'confirmed',
-        barcode,
-      });
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace('/(tabs)');
-      return;
+    const found = await addFromBarcode(barcode);
+    if (!found) {
+      setStatus(`Unknown code ${barcode}. Type a name to add it.`);
+      setManual((prev) => prev || barcode);
+      setScanned(false);
     }
-    const guess = guessFromName(manual);
-    setStatus(`Unknown code ${barcode}. Type a name to add it.`);
-    setManual((prev) => prev || barcode);
-    void guess;
-    setScanned(false);
   };
 
   const addUnknown = async () => {
-    const name = manual.trim();
-    if (!name) return;
-    const catalog = guessFromName(name);
-    const category = catalog?.category ?? 'other';
+    const value = manual.trim();
+    if (!value) return;
+    const found = await addFromBarcode(value);
+    if (found) return;
+    const source = new ManualIngestionSource(value, 1);
+    const [candidate] = await source.ingest();
+    if (!candidate) return;
     await addItem({
-      name: catalog?.name ?? name,
-      category,
-      quantity: 1,
-      unit: catalog?.unit ?? 'ea',
-      location: catalog?.location ?? settings.defaultLocations[category],
-      expiresAt: addDaysIso(new Date(), catalog?.shelfLifeDays ?? settings.shelfLifeDays[category]),
+      ...candidateToInput(candidate, new Date(), 'confirmed'),
       source: 'barcode',
-      status: 'confirmed',
-      barcode: name.match(/^\d+$/) ? name : undefined,
+      barcode: /^\d+$/.test(value) ? value : undefined,
     });
-    router.replace('/(tabs)');
+    setStatus(`Added ${candidate.name}. Scan another.`);
+    setManual('');
   };
 
   return (
@@ -77,18 +73,37 @@ export default function BarcodeScreen() {
               barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'qr', 'code128'],
             }}
             onBarcodeScanned={({ data }) => {
-              if (scanned) return;
               void handleCode(data);
             }}
           />
         ) : (
-          <View style={{ flex: 1, backgroundColor: t.ink, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-            <Text style={{ fontFamily: fonts.sans, color: '#fff', textAlign: 'center', marginBottom: 12 }}>
-              Camera access lets you scan barcodes. You can still type a code below.
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: t.ink,
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 24,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                color: '#fff',
+                textAlign: 'center',
+                marginBottom: 12,
+              }}
+            >
+              Camera access lets you scan. Sample codes below work without a camera.
             </Text>
             <PressScale
               onPress={() => requestPermission()}
-              style={{ backgroundColor: t.mint, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 }}
+              style={{
+                backgroundColor: t.mint,
+                borderRadius: 12,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+              }}
             >
               <Text style={{ fontFamily: fonts.sansMd, color: '#fff' }}>Allow camera</Text>
             </PressScale>
@@ -97,10 +112,28 @@ export default function BarcodeScreen() {
       </View>
       <View style={{ paddingHorizontal: 16, paddingBottom: 28, gap: 10 }}>
         <Text style={{ fontFamily: fonts.sans, color: t.muted, fontSize: 13 }}>{status}</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {Object.entries(LOCAL_BARCODES).slice(0, 4).map(([code, name]) => (
+            <PressScale
+              key={code}
+              onPress={() => handleCode(code)}
+              style={{
+                backgroundColor: t.paper,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: t.line,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+              }}
+            >
+              <Text style={{ fontFamily: fonts.sansMd, fontSize: 12, color: t.ink }}>{name}</Text>
+            </PressScale>
+          ))}
+        </View>
         <TextInput
           value={manual}
           onChangeText={setManual}
-          placeholder="Or type a barcode / product name"
+          placeholder="Barcode or product name"
           placeholderTextColor={t.muted}
           style={{
             fontFamily: fonts.sans,
@@ -114,12 +147,34 @@ export default function BarcodeScreen() {
             paddingVertical: 10,
           }}
         />
-        <PressScale
-          onPress={() => addUnknown()}
-          style={{ backgroundColor: t.ink, borderRadius: radii.md, paddingVertical: 12, alignItems: 'center' }}
-        >
-          <Text style={{ fontFamily: fonts.sansMd, color: '#fff' }}>Add anyway</Text>
-        </PressScale>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <PressScale
+            onPress={() => addUnknown()}
+            style={{
+              flex: 1,
+              backgroundColor: t.ink,
+              borderRadius: radii.md,
+              paddingVertical: 12,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ fontFamily: fonts.sansMd, color: '#fff' }}>Add</Text>
+          </PressScale>
+          <PressScale
+            onPress={() => router.back()}
+            style={{
+              paddingHorizontal: 16,
+              borderRadius: radii.md,
+              paddingVertical: 12,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: t.line,
+              backgroundColor: t.paper,
+            }}
+          >
+            <Text style={{ fontFamily: fonts.sansMd, color: t.ink }}>Done</Text>
+          </PressScale>
+        </View>
       </View>
     </View>
   );

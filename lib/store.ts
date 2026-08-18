@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { addDaysIso } from '@/domain/dates';
+import { addDaysIso, namesMatch } from '@/domain/dates';
 import { inferDepletionSuggestions } from '@/domain/confidence';
 import { defaultSettings } from '@/domain/defaults';
 import { guessFromName } from '@/domain/groceryCatalog';
@@ -28,6 +28,7 @@ interface AppState {
   removeRule: (id: string) => Promise<void>;
   resetSeed: () => Promise<void>;
   addCandidatesAsSuggested: (count: (now: Date) => NewItemInput[]) => Promise<void>;
+  confirmAllSuggested: () => Promise<void>;
   setToast: (toast?: string) => void;
 }
 
@@ -90,6 +91,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addItem: async (input) => {
+    if (input.status === 'confirmed') {
+      const existing = get().items.find(
+        (item) =>
+          item.status === 'confirmed' &&
+          namesMatch(item.name, input.name) &&
+          item.location === input.location,
+      );
+      if (existing) {
+        const updated = await inventoryRepo.update(existing.id, {
+          quantity: existing.quantity + input.quantity,
+        });
+        const items = get().items.map((item) => (item.id === existing.id ? updated : item));
+        set({ items, toast: `Updated ${updated.name}` });
+        await persistNotify(items, get().rules, get().settings);
+        return updated;
+      }
+    }
     const item = await inventoryRepo.add(input);
     const items = [item, ...get().items];
     set({ items, toast: `Added ${item.name}` });
@@ -202,5 +220,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     const items = [...created, ...get().items];
     set({ items, toast: `Added ${created.length} to confirm` });
+    await persistNotify(items, get().rules, get().settings);
+  },
+
+  confirmAllSuggested: async () => {
+    const suggested = get().items.filter((item) => item.status === 'suggested');
+    for (const item of suggested) {
+      await inventoryRepo.update(item.id, { status: 'confirmed', confidence: undefined });
+    }
+    const items = get().items.map((item) =>
+      item.status === 'suggested' ? { ...item, status: 'confirmed' as const, confidence: undefined } : item,
+    );
+    set({ items, toast: `Confirmed ${suggested.length}` });
+    await persistNotify(items, get().rules, get().settings);
   },
 }));

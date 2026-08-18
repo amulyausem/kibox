@@ -1,107 +1,72 @@
 # Kibox
 
-Local-only MVP of the Kibox household pantry app. Track groceries, confirm suggestions, and get a daily digest for food that’s expiring and staples that are running low.
+A local pantry app: log what you have, confirm suggestions, and get a daily digest when food is expiring or staples are running low.
 
-The product principle: **keeping inventory up to date has to be almost effortless**, and inferred items are never shown as certain truth.
+**Principle:** adding and updating items has to be almost effortless, or people quit. Inferred items are never shown as certain truth.
 
-## Run locally
+## Run
 
 ```bash
+cd ~/Desktop/Kibox-app
 npm install
-npm start
+npx expo start
 ```
 
-Then open in **Expo Go** (iOS or Android).
+Open in **Expo Go**. No account, no backend.
 
 ```bash
-npm test          # domain unit tests
+npm test
 npm run typecheck
 ```
 
-No account, no backend, no Stripe. Data lives in SQLite on device and survives restarts.
+First launch seeds a sample pantry (Settings → restore / toggle).
 
-Demo accounts aren’t needed. First launch seeds a sample pantry (toggle or reset it in Settings).
+## What you can do
 
-## Brand
-
-Visual language is taken from [kiboxofficial.com](https://www.kiboxofficial.com):
-
-| Token | Value |
-| --- | --- |
-| Ink | `#0f1416` |
-| Mint | `#5B8A81` |
-| Sage | `#8fa9a0` |
-| Clay | `#c7b7a2` |
-| Paper | `#ffffff` |
-| Background | `#f7f8f9` |
-| Line | `#e6eaee` |
-| UI type | Inter |
-| Headlines | Newsreader |
-| Logo | `assets/brand/kibox-logo.png` |
-
-Light and dark palettes both derive from those tokens. Motion is quiet: staggered fades, layout springs, press scale.
+- **Pantry** — list by soonest expiry or by place. Suggested rows are dashed, with Confirm / Dismiss.
+- **Add** — typeahead against a grocery catalog. Stay on the sheet and keep adding; Done when finished. Same item name+place bumps quantity.
+- **Barcode** — local lookup table (sample chips work without a camera). Unknown codes fall back to a name.
+- **Photo / receipt / loyalty** — stubbed sources that create *suggested* items.
+- **Today** — expired, expiring soon, running low, with Used / Toss / Restock.
+- **Restock** — low staples + flagged items; store buttons are stubbed.
+- **Settings** — digest time, per-category “soon” windows, default locations, seed data, staple rules.
 
 ## Architecture
 
-UI never talks to storage. Screens go through Zustand (`lib/store.ts`), which talks to repository interfaces.
+Screens talk to Zustand (`lib/store.ts`). The store talks to repository **interfaces**, never SQLite.
 
 ```
-app/            expo-router screens
-components/     compact branded UI
-domain/         pure logic (expiry, restock, confidence) — no React
-data/           repository implementations + stubs
-lib/            store, theme, notifications
+app/         screens (expo-router)
+domain/      expiry, restock, confidence — no React
+data/        Local* repositories + ingestion stubs
+lib/         store, theme, notifications
 ```
 
-### Repositories
+Swap `data/container.ts` later for a remote backend. No UI rewrite.
 
-Interfaces live in `data/repositories.ts`:
+### Ingestion sources (`IngestionSource`)
 
-- `InventoryRepository`
-- `StapleRepository`
-- `SettingsRepository`
-
-Today’s implementations:
-
-- `LocalInventoryRepository` / `LocalStapleRepository` / `LocalSettingsRepository` (SQLite via `expo-sqlite`)
-
-To add a backend later, implement `RemoteInventoryRepository` (and friends) against the same interfaces and swap them in `data/container.ts`. No screen changes required.
-
-### Ingestion sources
-
-`IngestionSource` produces candidate items. Implemented now:
-
-| Source | File | Status |
+| Source | File | Real now? |
 | --- | --- | --- |
-| Manual typeahead | `app/add.tsx` + `domain/groceryCatalog.ts` | Real |
-| Barcode | `data/lookup/productLookup.ts` | Local table now |
-| Photo | `data/ingestion/sources.ts` `PhotoRecognitionSource` | Stub vision |
+| Manual | `data/ingestion/manual.ts` | Yes |
+| Barcode | `data/ingestion/barcode.ts` + `ProductLookup` | Local table |
+| Photo | `PhotoRecognitionSource` | Stub |
 | Receipt | `ReceiptIngestionSource` | Stub |
 | Loyalty | `LoyaltyIngestionSource` | Stub |
 
-`ProductLookup` wraps barcode lookup. `LocalProductLookup` is live; `OpenFoodFactsLookup` is behind `FEATURES.realProductLookup`.
-
-Reorder is `data/reorder/handoff.ts` (`StubReorderHandoff`). Restock buttons are real; destinations are stubbed.
-
-Feature flags: `data/featureFlags.ts`.
+Flags: `data/featureFlags.ts`. Reorder: `data/reorder/handoff.ts`.
 
 ## Making stubs real
 
-- **Open Food Facts** — in `OpenFoodFactsLookup.lookup`, call `https://world.openfoodfacts.org/api/v2/product/{barcode}.json`, map `product_name` / categories, keep the local table as fallback. Flip `FEATURES.realProductLookup`.
-- **Vision** — send `photoUri` to an on-device or cloud model inside `PhotoRecognitionSource.ingest`. Return `CandidateItem[]`. Flip `FEATURES.realVisionRecognition`.
-- **Receipts / loyalty** — replace sample arrays in those sources with OCR or store-account sync. Flip the matching flags.
-- **Reorder** — put affiliate URLs in `StubReorderHandoff.open` (or a `RemoteReorderHandoff`). Flip `FEATURES.realReorderHandoff`.
+- **Open Food Facts** — implement in `OpenFoodFactsLookup`, flip `FEATURES.realProductLookup`.
+- **Vision** — send `photoUri` in `PhotoRecognitionSource.ingest`, flip `FEATURES.realVisionRecognition`.
+- **Receipt / loyalty** — replace sample arrays, flip the matching flags.
+- **Reorder** — affiliate URLs in `StubReorderHandoff.open`.
 
-Suggested items always require Confirm / Dismiss. Don’t skip that when wiring real models.
+Suggested items still require Confirm / Dismiss after real models.
 
-## Roadmap to deployment
+## Deploy later
 
-1. Keep this local MVP until Quick Add feels faster than a notes app.
-2. `eas build` for TestFlight / Play internal testing (no backend needed).
-3. Add auth + a small API that implements the existing repository interfaces.
-4. Swap `data/container.ts` to remote repos; SQLite can remain an offline cache.
-5. Turn on real product lookup, then vision, then receipt/loyalty, then reorder links.
-
-## Tests
-
-`domain/*.test.ts` cover expiry status, running-low detection, and depletion confidence. They run in Node with `tsx` — no simulator required.
+1. `eas build` for TestFlight / Play (still local SQLite).
+2. Add an API that implements the same repository interfaces.
+3. Point `data/container.ts` at remote repos; SQLite can stay as cache.

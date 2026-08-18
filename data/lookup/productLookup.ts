@@ -2,7 +2,7 @@ import { GROCERY_CATALOG } from '@/domain/groceryCatalog';
 import { FEATURES } from '../featureFlags';
 import type { ProductLookup, ProductRecord } from '../repositories';
 
-const LOCAL_BARCODES: Record<string, string> = {
+export const LOCAL_BARCODES: Record<string, string> = {
   '041220000011': 'Milk',
   '041220000028': 'Eggs',
   '041220000035': 'Bananas',

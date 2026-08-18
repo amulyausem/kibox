@@ -21,7 +21,7 @@ export function ScreenHeader({ title, subtitle, right }: Props) {
       }}
     >
       <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: fonts.serifBd, fontSize: 28, color: t.ink, letterSpacing: -0.4 }}>
+        <Text style={{ fontFamily: fonts.sansBd, fontSize: 28, color: t.ink, letterSpacing: -0.4 }}>
           {title}
         </Text>
         {subtitle ? (

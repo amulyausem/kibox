@@ -22,6 +22,7 @@ export function ItemRow({ item, index }: Props) {
   const settings = useAppStore((s) => s.settings);
   const confirmItem = useAppStore((s) => s.confirmItem);
   const dismissItem = useAppStore((s) => s.dismissItem);
+  const markUsed = useAppStore((s) => s.markUsed);
   const suggested = item.status === 'suggested';
   const now = new Date();
   const status = getExpiryStatus(item, now, settings);
@@ -43,26 +44,43 @@ export function ItemRow({ item, index }: Props) {
         marginBottom: 8,
       }}
     >
-      <PressScale onPress={() => router.push(`/item/${item.id}`)}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text
-              numberOfLines={1}
-              style={{ fontFamily: fonts.sansMd, fontSize: 15, color: t.ink }}
-            >
-              {item.name}
-            </Text>
-            <Text
-              numberOfLines={1}
-              style={{ fontFamily: fonts.sans, fontSize: 12, color: t.muted, marginTop: 2 }}
-            >
-              {qtyLabel(item.quantity, item.unit)} · {item.location}
-              {suggested ? ` · ${confidenceLabel(item.confidence)}` : ''}
-            </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <PressScale onPress={() => router.push(`/item/${item.id}`)} style={{ flex: 1, minWidth: 0 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text
+                numberOfLines={1}
+                style={{ fontFamily: fonts.sansMd, fontSize: 15, color: t.ink }}
+              >
+                {item.name}
+              </Text>
+              <Text
+                numberOfLines={1}
+                style={{ fontFamily: fonts.sans, fontSize: 12, color: t.muted, marginTop: 2 }}
+              >
+                {qtyLabel(item.quantity, item.unit)} · {item.location}
+                {suggested ? ` · ${confidenceLabel(item.confidence)}` : ''}
+              </Text>
+            </View>
+            <ExpiryPill status={status} label={label} />
           </View>
-          <ExpiryPill status={status} label={label} />
-        </View>
-      </PressScale>
+        </PressScale>
+        {!suggested ? (
+          <PressScale
+            onPress={() => markUsed(item.id)}
+            style={{
+              paddingHorizontal: 8,
+              paddingVertical: 6,
+              borderRadius: 8,
+              backgroundColor: t.bg0,
+              borderWidth: 1,
+              borderColor: t.line,
+            }}
+          >
+            <Text style={{ fontFamily: fonts.sansMd, fontSize: 11, color: t.ink }}>Used</Text>
+          </PressScale>
+        ) : null}
+      </View>
       {suggested ? (
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
           <PressScale

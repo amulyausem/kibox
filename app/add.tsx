@@ -6,11 +6,10 @@ import * as Haptics from 'expo-haptics';
 import { Camera, ScanBarcode, Store, Receipt } from 'lucide-react-native';
 import { PressScale } from '@/components/PressScale';
 import { QuantityStepper } from '@/components/QuantityStepper';
+import { ManualIngestionSource } from '@/data/ingestion/manual';
 import { LoyaltyIngestionSource, ReceiptIngestionSource } from '@/data/ingestion/sources';
-import { addDaysIso } from '@/domain/dates';
-import { DEFAULT_LOCATIONS, DEFAULT_UNITS } from '@/domain/defaults';
+import { candidateToInput } from '@/data/ingestion/toInput';
 import { GROCERY_CATALOG, searchCatalog } from '@/domain/groceryCatalog';
-import type { Category, Location } from '@/domain/types';
 import { categoryLabel, locationLabel } from '@/lib/format';
 import { useAppStore } from '@/lib/store';
 import { fonts, radii, useTheme } from '@/lib/theme';
@@ -20,51 +19,27 @@ export default function QuickAddScreen() {
   const router = useRouter();
   const addItem = useAppStore((s) => s.addItem);
   const addCandidatesAsSuggested = useAppStore((s) => s.addCandidatesAsSuggested);
-  const settings = useAppStore((s) => s.settings);
+  const toast = useAppStore((s) => s.toast);
   const [query, setQuery] = useState('');
   const [qty, setQty] = useState(1);
   const hits = useMemo(() => searchCatalog(query, 6), [query]);
 
-  const addNamed = async (
-    name: string,
-    extras?: { category?: Category; location?: Location; unit?: string; shelfLifeDays?: number },
-  ) => {
-    const catalog = GROCERY_CATALOG.find((row) => row.name.toLowerCase() === name.toLowerCase());
-    const category = extras?.category ?? catalog?.category ?? 'other';
-    const location = extras?.location ?? catalog?.location ?? settings.defaultLocations[category];
-    const unit = extras?.unit ?? catalog?.unit ?? DEFAULT_UNITS[category];
-    const shelf = extras?.shelfLifeDays ?? catalog?.shelfLifeDays ?? settings.shelfLifeDays[category];
-    await addItem({
-      name: catalog?.name ?? name.trim(),
-      category,
-      quantity: qty,
-      unit,
-      location,
-      expiresAt: addDaysIso(new Date(), shelf),
-      source: 'manual',
-      status: 'confirmed',
-    });
+  const addNamed = async (name: string) => {
+    const source = new ManualIngestionSource(name, qty);
+    const [candidate] = await source.ingest();
+    if (!candidate) return;
+    await addItem(candidateToInput(candidate, new Date(), 'confirmed'));
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
+    setQuery('');
+    setQty(1);
   };
 
   const ingestStub = async (kind: 'receipt' | 'loyalty') => {
     const source = kind === 'receipt' ? new ReceiptIngestionSource() : new LoyaltyIngestionSource();
     const candidates = await source.ingest();
     await addCandidatesAsSuggested((now) =>
-      candidates.map((c) => ({
-        name: c.name,
-        category: c.category,
-        quantity: c.quantity,
-        unit: c.unit,
-        location: c.location ?? DEFAULT_LOCATIONS[c.category],
-        expiresAt: c.expiresInDays ? addDaysIso(now, c.expiresInDays) : undefined,
-        source: c.source,
-        status: 'suggested' as const,
-        confidence: c.confidence,
-      })),
+      candidates.map((c) => candidateToInput(c, now, 'suggested')),
     );
-    router.back();
   };
 
   return (
@@ -77,8 +52,13 @@ export default function QuickAddScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
       >
         <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: t.muted, marginBottom: 10 }}>
-          Tap a match to add it. Category, place, and expiry fill in for you.
+          Tap a match to add. Stay here and keep going — Done when you’re finished.
         </Text>
+        {toast ? (
+          <Text style={{ fontFamily: fonts.sansMd, fontSize: 13, color: t.mint, marginBottom: 8 }}>
+            {toast}
+          </Text>
+        ) : null}
         <TextInput
           autoFocus
           value={query}
@@ -156,6 +136,19 @@ export default function QuickAddScreen() {
             <Text style={{ fontFamily: fonts.sansMd, color: '#fff' }}>Add “{query.trim()}”</Text>
           </PressScale>
         ) : null}
+
+        <PressScale
+          onPress={() => router.back()}
+          style={{
+            marginTop: 16,
+            backgroundColor: t.ink,
+            borderRadius: radii.md,
+            paddingVertical: 12,
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ fontFamily: fonts.sansMd, color: '#fff' }}>Done</Text>
+        </PressScale>
 
         <Text
           style={{

@@ -6,6 +6,7 @@ import { PressScale } from '@/components/PressScale';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { FEATURES } from '@/data/featureFlags';
 import { createId } from '@/domain/ids';
+import { CATEGORIES, LOCATIONS } from '@/domain/types';
 import { hourLabel } from '@/lib/format';
 import { useAppStore } from '@/lib/store';
 import { fonts, radii, useTheme } from '@/lib/theme';
@@ -65,6 +66,86 @@ export default function SettingsScreen() {
                   <Text style={{ color: t.mint, fontFamily: fonts.sansMd }}>+</Text>
                 </PressScale>
               </View>
+            }
+          />
+        </Card>
+
+        <Card title="Expiring-soon window">
+          <Text style={{ fontFamily: fonts.sans, fontSize: 12, color: t.muted, marginBottom: 8 }}>
+            Days before expiry that count as “soon.”
+          </Text>
+          {CATEGORIES.map((category) => (
+            <Row
+              key={category}
+              label={category}
+              right={
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <PressScale
+                    onPress={() =>
+                      saveSettings({
+                        soonWindowsDays: {
+                          ...settings.soonWindowsDays,
+                          [category]: Math.max(1, settings.soonWindowsDays[category] - 1),
+                        },
+                      })
+                    }
+                  >
+                    <Text style={{ color: t.mint, fontFamily: fonts.sansMd }}>−</Text>
+                  </PressScale>
+                  <Text style={{ fontFamily: fonts.sansMd, color: t.ink, minWidth: 28, textAlign: 'center' }}>
+                    {settings.soonWindowsDays[category]}d
+                  </Text>
+                  <PressScale
+                    onPress={() =>
+                      saveSettings({
+                        soonWindowsDays: {
+                          ...settings.soonWindowsDays,
+                          [category]: settings.soonWindowsDays[category] + 1,
+                        },
+                      })
+                    }
+                  >
+                    <Text style={{ color: t.mint, fontFamily: fonts.sansMd }}>+</Text>
+                  </PressScale>
+                </View>
+              }
+            />
+          ))}
+        </Card>
+
+        <Card title="Default locations">
+          {CATEGORIES.map((category) => {
+            const current = settings.defaultLocations[category];
+            const next = LOCATIONS[(LOCATIONS.indexOf(current) + 1) % LOCATIONS.length];
+            return (
+              <Row
+                key={category}
+                label={category}
+                right={
+                  <PressScale onPress={() => saveSettings({
+                    defaultLocations: { ...settings.defaultLocations, [category]: next },
+                  })}>
+                    <Text style={{ fontFamily: fonts.sansMd, fontSize: 13, color: t.mint }}>
+                      {current}
+                    </Text>
+                  </PressScale>
+                }
+              />
+            );
+          })}
+        </Card>
+
+        <Card title="Units">
+          <Row
+            label={settings.units === 'imperial' ? 'US (imperial)' : 'Metric'}
+            right={
+              <PressScale
+                onPress={() =>
+                  saveSettings({ units: settings.units === 'imperial' ? 'metric' : 'imperial' })
+                }
+              >
+                <Text style={{ fontFamily: fonts.sansMd, color: t.mint }}>Switch</Text>
+              </PressScale>
             }
           />
         </Card>

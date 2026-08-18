@@ -3,9 +3,9 @@ import { Image, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { PressScale } from '@/components/PressScale';
-import { FEATURES } from '@/data/featureFlags';
+import { candidateToInput } from '@/data/ingestion/toInput';
 import { PhotoRecognitionSource } from '@/data/ingestion/sources';
-import { addDaysIso } from '@/domain/dates';
+import { FEATURES } from '@/data/featureFlags';
 import { useAppStore } from '@/lib/store';
 import { fonts, radii, useTheme } from '@/lib/theme';
 
@@ -37,18 +37,7 @@ export default function PhotoAddScreen() {
     const source = new PhotoRecognitionSource(uri);
     const candidates = await source.ingest();
     await addCandidatesAsSuggested((now) =>
-      candidates.map((c) => ({
-        name: c.name,
-        category: c.category,
-        quantity: c.quantity,
-        unit: c.unit,
-        location: c.location,
-        expiresAt: c.expiresInDays ? addDaysIso(now, c.expiresInDays) : undefined,
-        source: 'photo',
-        status: 'suggested',
-        confidence: c.confidence,
-        photoUri: uri,
-      })),
+      candidates.map((c) => ({ ...candidateToInput(c, now, 'suggested'), photoUri: uri })),
     );
     router.replace('/(tabs)');
   };

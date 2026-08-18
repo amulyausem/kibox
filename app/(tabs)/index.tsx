@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AddFab } from '@/components/AddFab';
 import { BrandMark } from '@/components/BrandMark';
 import { Chip } from '@/components/Chip';
 import { ItemRow } from '@/components/ItemRow';
+import { PressScale } from '@/components/PressScale';
 import { ToastBar } from '@/components/ToastBar';
+import { nameIncludes } from '@/domain/dates';
 import { compareByExpiry } from '@/domain/expiry';
 import { useAppStore } from '@/lib/store';
-import { fonts, useTheme } from '@/lib/theme';
+import { fonts, radii, useTheme } from '@/lib/theme';
 
 type SortMode = 'expiry' | 'location';
 
@@ -20,6 +22,9 @@ export default function InventoryScreen() {
   const toast = useAppStore((s) => s.toast);
   const setToast = useAppStore((s) => s.setToast);
   const [sort, setSort] = useState<SortMode>('expiry');
+  const [query, setQuery] = useState('');
+  const confirmAllSuggested = useAppStore((s) => s.confirmAllSuggested);
+  const confirmedCount = items.filter((item) => item.status === 'confirmed').length;
 
   useEffect(() => {
     if (!toast) return;
@@ -27,8 +32,12 @@ export default function InventoryScreen() {
     return () => clearTimeout(timer);
   }, [toast, setToast]);
 
-  const suggested = items.filter((item) => item.status === 'suggested');
-  const confirmed = items.filter((item) => item.status === 'confirmed');
+  const suggested = items.filter(
+    (item) => item.status === 'suggested' && (!query || nameIncludes(item.name, query)),
+  );
+  const confirmed = items.filter(
+    (item) => item.status === 'confirmed' && (!query || nameIncludes(item.name, query)),
+  );
 
   const grouped = useMemo(() => {
     const now = new Date();
@@ -72,7 +81,7 @@ export default function InventoryScreen() {
             <View>
               <Text
                 style={{
-                  fontFamily: fonts.serifBd,
+                  fontFamily: fonts.sansBd,
                   fontSize: 26,
                   color: t.ink,
                   letterSpacing: -0.4,
@@ -81,7 +90,7 @@ export default function InventoryScreen() {
                 Pantry
               </Text>
               <Text style={{ fontFamily: fonts.sans, fontSize: 12, color: t.muted }}>
-                {loaded ? `${confirmed.length} confirmed` : 'Loading…'}
+                {loaded ? `${confirmedCount} confirmed` : 'Loading…'}
               </Text>
             </View>
           </View>
@@ -91,28 +100,66 @@ export default function InventoryScreen() {
           </View>
         </View>
 
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Find an item"
+          placeholderTextColor={t.muted}
+          style={{
+            fontFamily: fonts.sans,
+            fontSize: 14,
+            color: t.ink,
+            backgroundColor: t.paper,
+            borderRadius: radii.md,
+            borderWidth: 1,
+            borderColor: t.line,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            marginBottom: 12,
+          }}
+        />
+
         <ScrollView
           contentContainerStyle={{ paddingBottom: 96 }}
           showsVerticalScrollIndicator={false}
         >
           {suggested.length > 0 ? (
             <View style={{ marginBottom: 6 }}>
-              <Text
+              <View
                 style={{
-                  fontFamily: fonts.sansMd,
-                  fontSize: 11,
-                  color: t.mint,
-                  letterSpacing: 1.2,
-                  textTransform: 'uppercase',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
                   marginBottom: 8,
                 }}
               >
-                Confirm these
-              </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.sansMd,
+                    fontSize: 11,
+                    color: t.mint,
+                    letterSpacing: 1.2,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Confirm these
+                </Text>
+                <PressScale onPress={() => confirmAllSuggested()}>
+                  <Text style={{ fontFamily: fonts.sansMd, fontSize: 12, color: t.mint }}>
+                    Confirm all
+                  </Text>
+                </PressScale>
+              </View>
               {suggested.map((item, index) => (
                 <ItemRow key={item.id} item={item} index={index} />
               ))}
             </View>
+          ) : null}
+
+          {loaded && suggested.length === 0 && confirmed.length === 0 ? (
+            <Text style={{ fontFamily: fonts.sans, color: t.muted, fontSize: 14, marginTop: 24 }}>
+              {query ? 'No matching items.' : 'Pantry is empty. Tap Add to log what you have.'}
+            </Text>
           ) : null}
 
           {grouped.map((group) => (
